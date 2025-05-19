@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Truco Soviético</title>
+  <style>
+    :root {
+      --vermelho: #b30000;
+      --vermelho-escuro: #8c0000;
+      --vermelho-claro: #ff3333;
+      --preto: #333333;
+      --cinza-escuro: #555555;
+      --branco: #ffffff;
+      --cinza-claro: #f2f2f2;
+      --cinza: #e6e6e6;
+      --cinza-medio: #cccccc;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--cinza-claro);
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      color: var(--preto);
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--vermelho);
+      margin-bottom: 30px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .container {
+      background-color: var(--branco);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    #cartas-container {
+      margin: 20px 0;
+      min-height: 80px;
+      border: 2px dashed var(--cinza-medio);
+      border-radius: 8px;
+      padding: 15px;
+      background-color: var(--branco);
+      text-align: center;
+    }
+
+    #cartas {
+      font-size: 1.3em;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .botoes-cartas {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1em;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: bold;
+      min-width: 120px;
+    }
+
+    /* Botão Iniciar */
+    #btnIniciar {
+      background-color: var(--vermelho);
+    }
+
+    #btnIniciar:hover {
+      background-color: var(--vermelho-escuro);
+    }
+
+    /* Botão Resetar */
+    #btnResetar {
+      background-color: var(--preto);
+    }
+
+    #btnResetar:hover {
+      background-color: var(--cinza-escuro);
+    }
+
+    /* Botões de Carta (agora vermelhos) */
+    #btnCarta1, #btnCarta2, #btnCarta3 {
+      background-color: var(--vermelho);
+    }
+
+    #btnCarta1:hover, #btnCarta2:hover, #btnCarta3:hover {
+      background-color: var(--vermelho-escuro);
+    }
+
+    button:disabled {
+      background-color: var(--cinza-medio);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #mensagem {
+      margin: 20px 0;
+      padding: 15px;
+      border-radius: 8px;
+      background-color: var(--cinza);
+      font-weight: bold;
+      text-align: center;
+      min-height: 20px;
+    }
+
+    .placar-container {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .placar-time {
+      padding: 10px 20px;
+      border-radius: 8px;
+      background-color: var(--cinza);
+      font-weight: bold;
+    }
+
+    #vez {
+      text-align: center;
+      font-size: 1.1em;
+      margin-top: 10px;
+    }
+
+    .iniciar-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    @media (max-width: 600px) {
+      .botoes-cartas {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .iniciar-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      button {
+        width: 100%;
+        margin: 5px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🃏 Truco Soviético</h1>
+    
+    <div class="iniciar-container">
+      <button id="btnIniciar">Iniciar Jogo</button>
+      <button id="btnResetar" disabled>Resetar Jogo</button>
+    </div>
+    
+    <div id="cartas-container">
+      <div id="cartas">Clique em "Iniciar Jogo" para começar</div>
+    </div>
+    
+    <div class="botoes-cartas">
+      <button id="btnCarta1" onclick="jogar(0)" disabled>Jogar Carta 1</button>
+      <button id="btnCarta2" onclick="jogar(1)" disabled>Jogar Carta 2</button>
+      <button id="btnCarta3" onclick="jogar(2)" disabled>Jogar Carta 3</button>
+    </div>
+    
+    <div id="mensagem"></div>
+    
+    <div class="placar-container">
+      <div class="placar-time" id="placarTime1">Time 1: 0</div>
+      <div class="placar-time" id="placarTime2">Time 2: 0</div>
+    </div>
+    
+    <div id="vez">Rodada: 1</div>
+  </div>
+
+  <script>
+    // Elementos do DOM
+    const cartasEl = document.getElementById('cartas');
+    const mensagemEl = document.getElementById('mensagem');
+    const placarTime1El = document.getElementById('placarTime1');
+    const placarTime2El = document.getElementById('placarTime2');
+    const vezEl = document.getElementById('vez');
+    const btnIniciar = document.getElementById('btnIniciar');
+    const btnResetar = document.getElementById('btnResetar');
+    const btnCarta1 = document.getElementById('btnCarta1');
+    const btnCarta2 = document.getElementById('btnCarta2');
+    const btnCarta3 = document.getElementById('btnCarta3');
+    
+    // Estado do cliente
+    let cartasAtuais = [];
+    let jogoAtivo = false;
+    
+    // Funções auxiliares
+    function atualizarBotoes() {
+      const podeJogar = jogoAtivo && cartasAtuais.length > 0;
+      
+      btnCarta1.disabled = !podeJogar || cartasAtuais.length < 1;
+      btnCarta2.disabled = !podeJogar || cartasAtuais.length < 2;
+      btnCarta3.disabled = !podeJogar || cartasAtuais.length < 3;
+      
+      if (podeJogar) {
+        btnCarta1.textContent = cartasAtuais.length > 0 ? `Jogar ${cartasAtuais[0]}` : 'Jogar Carta 1';
+        btnCarta2.textContent = cartasAtuais.length > 1 ? `Jogar ${cartasAtuais[1]}` : 'Jogar Carta 2';
+        btnCarta3.textContent = cartasAtuais.length > 2 ? `Jogar ${cartasAtuais[2]}` : 'Jogar Carta 3';
+      }
+    }
+    
+    // Funções de comunicação com a API
+    async function carregarEstado() {
+      try {
+        const [resCartas, resPlacar] = await Promise.all([
+          fetch('/cartas'),
+          fetch('/placar')
+        ]);
+        
+        if (!resCartas.ok || !resPlacar.ok) throw new Error('Erro na comunicação');
+        
+        const dataCartas = await resCartas.json();
+        const dataPlacar = await resPlacar.json();
+        
+        // Atualiza estado do jogo
+        jogoAtivo = dataPlacar.jogo_iniciado || false;
+        
+        // Atualiza cartas
+        if (dataCartas.status === 'ativo' && Array.isArray(dataCartas.cartas)) {
+          cartasAtuais = dataCartas.cartas;
+          cartasEl.textContent = `Suas cartas: ${cartasAtuais.join(' | ')}`;
+        } else {
+          cartasAtuais = [];
+          cartasEl.textContent = dataCartas.cartas[0] || 'Aguardando...';
+        }
+        
+        // Atualiza placar
+        placarTime1El.textContent = `Time 1: ${dataPlacar.time1}`;
+        placarTime2El.textContent = `Time 2: ${dataPlacar.time2}`;
+        vezEl.textContent = `Rodada: ${dataPlacar.rodada}${dataCartas.vez ? ` - Vez: Jogador ${dataCartas.vez}` : ''}`;
+        
+        // Atualiza botões de controle
+        btnIniciar.disabled = jogoAtivo;
+        btnResetar.disabled = !jogoAtivo;
+        btnIniciar.textContent = jogoAtivo ? 'Jogo em Andamento' : 'Iniciar Jogo';
+        
+        // Atualiza botões de carta
+        atualizarBotoes();
+        
+      } catch (error) {
+        console.error('Erro:', error);
+        mensagemEl.textContent = 'Erro ao conectar ao servidor. Tentando novamente...';
+        setTimeout(carregarEstado, 3000);
+      }
+    }
+    
+    async function iniciarJogo() {
+      try {
+        const res = await fetch('/iniciar', {
+          method: 'POST'
+        });
+        
+        if (!res.ok) throw new Error('Erro ao iniciar jogo');
+        
+        const data = await res.json();
+        mensagemEl.textContent = data.mensagem;
+        await carregarEstado();
+        
+      } catch (error) {
+        console.error('Erro:', error);
+        mensagemEl.textContent = 'Falha ao iniciar o jogo. Tente novamente.';
+      }
+    }
+    
+    async function resetarJogo() {
+      try {
+        const res = await fetch('/resetar', {
+          method: 'POST'
+        });
+        
+        if (!res.ok) throw new Error('Erro ao resetar jogo');
+        
+        const data = await res.json();
+        mensagemEl.textContent = data.mensagem;
+        await carregarEstado();
+        
+      } catch (error) {
+        console.error('Erro:', error);
+        mensagemEl.textContent = 'Falha ao resetar o jogo. Tente novamente.';
+      }
+    }
+    
+    async function jogar(indice) {
+      try {
+        const res = await fetch(`/jogar/${indice}`, {
+          method: 'POST'
+        });
+        
+        if (!res.ok) throw new Error('Erro ao jogar carta');
+        
+        const data = await res.json();
+        mensagemEl.textContent = data.resultado;
+        await carregarEstado();
+        
+      } catch (error) {
+        console.error('Erro:', error);
+        mensagemEl.textContent = 'Falha ao jogar carta. Tente novamente.';
+      }
+    }
+    
+    // Event Listeners
+    btnIniciar.addEventListener('click', iniciarJogo);
+    btnResetar.addEventListener('click', resetarJogo);
+    
+    // Inicialização
+    carregarEstado();
+    setInterval(carregarEstado, 3000); // Atualiza a cada 3 segundos
+  </script>
+</body>
+</html>
