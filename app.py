@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 import random
 import os
 from threading import Lock
@@ -60,18 +60,15 @@ class TrucoGame:
         random.shuffle(self.deck)
 
     def _distribute_cards(self):
-        """
-        Distribui cartas para os jogadores.
-        Regra original mantida: Se não houver cartas suficientes, o baralho é reembaralhado.
-        """
+        """Distribui cartas para os jogadores."""
         if len(self.deck) < NUM_PLAYERS * CARDS_PER_HAND:
             self._prepare_deck()
 
         for i in range(NUM_PLAYERS):
-            # A regra original de limpar e redistribuir a cada mão é mantida.
             self.players[i].clear()
             for _ in range(CARDS_PER_HAND):
-                self.players[i].append(self.deck.pop())
+                if self.deck:
+                    self.players[i].append(self.deck.pop())
 
     def play_card(self, card_index):
         """Processa a jogada de um jogador."""
@@ -88,7 +85,7 @@ class TrucoGame:
             self.current_player_idx += 1
 
             if self.current_player_idx == NUM_PLAYERS:
-                return self._end_hand()  # Todos os 4 jogadores jogaram.
+                return self._end_hand()
 
             return {"resultado": "Carta jogada. Aguardando próximo jogador."}
 
@@ -116,42 +113,32 @@ class TrucoGame:
         return {"resultado": f"{winner_name} venceu a mão! Começando a próxima mão."}
 
     def _start_new_hand(self):
-        """
-        Prepara para a próxima mão dentro da mesma rodada.
-        Regra original mantida: a mesa é limpa e novas cartas são distribuídas.
-        """
+        """Prepara para a próxima mão dentro da mesma rodada."""
         self.table = []
-        self.current_player_idx = 0  # A vez sempre reinicia do jogador 0 na nova mão.
+        self.current_player_idx = 0
         self.hand_of_round += 1
         self._distribute_cards()
 
     def _get_hand_winner(self):
-        """Determina o jogador que venceu a mão com base nas cartas da mesa."""
+        """Determina o jogador que venceu a mão."""
         cards_on_table = [(item['player_idx'], item['card']) for item in self.table]
         card_values = [card for _, card in cards_on_table]
 
-        # Regra especial mantida: Porcão (0) vs Zap (11)
         if 0 in card_values and 11 in card_values:
             return next(player_idx for player_idx, card in cards_on_table if card == 0)
 
-        # Regra padrão: a carta de maior valor vence.
         return max(cards_on_table, key=lambda item: item[1])[0]
 
     def get_state(self):
-        """Monta e retorna um objeto com o estado completo e atual do jogo."""
+        """Retorna o estado completo e atual do jogo."""
         with self.lock:
-            # O jogador da vez é quem está visualizando as cartas.
             player_id_for_view = self.current_player_idx if self.current_player_idx < NUM_PLAYERS else 0
-            
             player_cards = self.players[player_id_for_view]
             player_card_names = [CARD_NAMES.get(c, "??") for c in player_cards]
 
             return jsonify({
                 "jogoIniciado": self.jogo_iniciado,
-                "placar": {
-                    "time1": self.team1_hand_wins,
-                    "time2": self.team2_hand_wins,
-                },
+                "placar": {"time1": self.team1_hand_wins, "time2": self.team2_hand_wins},
                 "mao": self.hand_of_round,
                 "jogadorDaVez": self.current_player_idx + 1 if self.jogo_iniciado and self.current_player_idx < NUM_PLAYERS else None,
                 "cartasDoJogador": player_card_names,
@@ -159,41 +146,37 @@ class TrucoGame:
                 "vencedorDaRodada": self.round_winner_team
             })
 
-# --- Rotas da API Flask ---
-app = Flask(__name__)
+# --- Configuração do Flask ---
+app = Flask(__name__, template_folder='templates', static_folder='static')
 game = TrucoGame()
 
-@app.route('/state')
+# --- Rotas da Aplicação ---
+@app.route('/')
+def index():
+    """Serve a página principal do jogo."""
+    return render_template('index.html')
+
+@app.route('/api/state')
 def get_game_state():
-    """Endpoint único que provê todo o estado do jogo para o cliente."""
+    """Endpoint que provê todo o estado do jogo para o cliente."""
     return game.get_state()
 
-@app.route('/jogar/<int:indice>', methods=['POST'])
-def jogar_carta(indice):
+@app.route('/api/play/<int:indice>', methods=['POST'])
+def api_play_card(indice):
     """Endpoint para um jogador jogar uma carta."""
-    resultado = game.play_card(indice)
-    return jsonify(resultado)
+    return jsonify(game.play_card(indice))
 
-@app.route('/iniciar', methods=['POST'])
-def iniciar():
+@app.route('/api/start', methods=['POST'])
+def api_start_game():
     """Endpoint para iniciar uma nova rodada."""
     return jsonify(game.start_new_round())
 
-@app.route('/resetar', methods=['POST'])
-def resetar():
+@app.route('/api/reset', methods=['POST'])
+def api_reset_game():
     """Endpoint para resetar o jogo completamente."""
     game.reset_full_game()
     return jsonify(mensagem="Jogo resetado com sucesso!", status="sucesso")
 
-# Rotas antigas podem ser removidas ou desativadas, pois /state as substitui.
-@app.route('/cartas')
-def get_cartas_antigo():
-    return jsonify(cartas=["Endpoint desativado, use /state"], status="obsoleto")
-
-@app.route('/placar')
-def get_placar_antigo():
-    return jsonify(error="Endpoint desativado, use /state")
-
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)
