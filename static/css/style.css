@@ -53,11 +53,18 @@ body {
     margin-top: 15px;
 }
 
+.room-input {
+    padding: 10px;
+    border-radius: var(--border-radius);
+    border: 1px solid #ddd;
+    font-size: 1rem;
+}
+
 .game-main {
     padding: 20px;
 }
 
-.cards-section {
+.cards-section, .table-section {
     margin-bottom: 25px;
 }
 
@@ -66,7 +73,7 @@ body {
     min-height: 80px;
     border: 2px dashed #ddd;
     border-radius: var(--border-radius);
-    margin-bottom: 15px;
+    margin-top: 10px;
     text-align: center;
     font-size: 1.1rem;
     font-weight: bold;
@@ -75,6 +82,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 20px;
 }
 
 .cards-actions {
@@ -82,6 +90,7 @@ body {
     justify-content: center;
     gap: 10px;
     flex-wrap: wrap;
+    margin-top: 15px;
 }
 
 .game-info {
@@ -126,6 +135,9 @@ body {
 .game-status {
     font-size: 1.1rem;
     color: var(--text-light);
+    display: flex;
+    justify-content: center;
+    gap: 20px;
 }
 
 .btn {
@@ -145,15 +157,6 @@ body {
 
 .btn-primary:hover:not(:disabled) {
     background-color: var(--primary-dark);
-}
-
-.btn-secondary {
-    background-color: var(--secondary-color);
-    color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background-color: var(--secondary-light);
 }
 
 .btn-card {
@@ -177,7 +180,7 @@ body {
         flex-direction: column;
     }
     
-    .btn {
+    .btn, .room-input {
         width: 100%;
     }
 }
