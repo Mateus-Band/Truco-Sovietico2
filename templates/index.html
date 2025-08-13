@@ -3,51 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Truco Soviético 2.0</title>
+  <title>Truco Soviético - Multiplayer</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
   <div class="game-container">
     <header class="game-header">
-      <h1>🃏 Truco Soviético</h1>
-      <div class="game-controls">
-        <button id="btnStart" class="btn btn-primary">Iniciar Jogo</button>
-        <button id="btnReset" class="btn btn-secondary">Resetar Jogo</button>
+      <h1>🃏 Truco Soviético Online</h1>
+      
+      <div id="room-controls" class="game-controls">
+        <input type="text" id="room-input" placeholder="Nome da Sala" class="room-input">
+        <button id="join-button" class="btn btn-primary">Entrar / Criar Sala</button>
       </div>
+
     </header>
 
-    <main class="game-main">
-      <section class="cards-section">
-        <div id="cardsDisplay" class="cards-display">
-          Clique em "Iniciar Jogo" para começar
+    <main id="game-main" class="game-main" style="display:none;">
+      <section class="game-info">
+        <div id="game-message" class="game-message">Aguardando 4 jogadores...</div>
+        
+        <div class="score-board">
+          <div id="scoreTeam1" class="score-team">Time 1 (J1 & J3)<span class="score-value">0</span></div>
+          <div id="scoreTeam2" class="score-team">Time 2 (J2 & J4)<span class="score-value">0</span></div>
         </div>
-        <div class="cards-actions">
-          <button id="btnCard1" class="btn btn-card">Carta 1</button>
-          <button id="btnCard2" class="btn btn-card">Carta 2</button>
-          <button id="btnCard3" class="btn btn-card">Carta 3</button>
+
+        <div class="game-status">
+            <span id="room-name-display"></span>
+            <span id="player-number-display"></span>
         </div>
       </section>
 
-      <section class="game-info">
-        <div id="gameMessage" class="game-message">Bem-vindo!</div>
-        <div class="score-board">
-          <div id="scoreTeam1" class="score-team">
-            Time 1
-            <span class="score-value">0</span>
-          </div>
-          <div id="scoreTeam2" class="score-team">
-            Time 2
-            <span class="score-value">0</span>
-          </div>
-        </div>
-        <div class="game-status">
-          <span id="roundNumber">Mão: 1</span>
-          <span id="playerTurn"></span>
+      <section id="table-section" class="table-section">
+        <h3>Mesa</h3>
+        <div id="table-cards" class="cards-display"></div>
+      </section>
+      
+      <section class="cards-section">
+        <h3>Minhas Cartas</h3>
+        <div class="cards-actions">
+          <button id="btnCard1" class="btn btn-card" disabled>Carta 1</button>
+          <button id="btnCard2" class="btn btn-card" disabled>Carta 2</button>
+          <button id="btnCard3" class="btn btn-card" disabled>Carta 3</button>
         </div>
       </section>
+
     </main>
   </div>
 
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
