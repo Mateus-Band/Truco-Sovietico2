@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentRoom = null;
     let myPlayerNumber = null;
 
-    // --- Lógica de Conexão ---
+    // Lógica de Conexão
     joinButton.addEventListener('click', () => {
         const room = roomInput.value.trim().toLowerCase();
         if (room) {
@@ -33,54 +33,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Ouvinte Principal de Atualizações ---
+    // Ouvinte Principal de Atualizações
     socket.on('update_state', (state) => {
         console.log("Estado recebido:", state);
-        if (!state) return;
+        if (!state || Object.keys(state).length === 0) {
+            // Se o estado estiver vazio, talvez o jogador tenha sido removido de uma sala
+            return;
+        }
 
         myPlayerNumber = state.myPlayerNumber;
         playerNumberDisplay.textContent = `Você é o Jogador ${myPlayerNumber}`;
 
-        // Atualiza placar e mão
         scoreTeam1.textContent = state.placar.time1;
         scoreTeam2.textContent = state.placar.time2;
 
-        // Atualiza a mesa
         if (state.mesa.length > 0) {
             tableCards.innerHTML = state.mesa.map(item => `<span>J${item.player}: ${item.card}</span>`).join(' ');
         } else {
-            tableCards.innerHTML = 'Mão limpa';
+            tableCards.innerHTML = 'Aguardando jogadas...';
         }
 
-        // Atualiza mensagem de status
         if(state.roundWinner) {
-            gameMessage.textContent = `Time ${state.roundWinner} venceu a rodada! Aguardando...`;
+            gameMessage.textContent = `Time ${state.roundWinner} venceu a rodada!`;
         } else if (state.gameStarted) {
             gameMessage.textContent = `Mão ${state.mao} - Vez do Jogador ${state.jogadorDaVez}`;
         } else {
-            gameMessage.textContent = `Aguardando 4 jogadores... (${state.connected_players.length}/4)`;
+            gameMessage.textContent = `Aguardando jogadores... (${state.connected_players_count}/4)`;
         }
 
-        // Atualiza minhas cartas e botões
         cardButtons.forEach((btn, index) => {
             if (index < state.myCards.length) {
                 btn.textContent = CARD_NAMES[state.myCards[index]];
                 btn.style.display = 'inline-block';
-                // Habilita o botão apenas se for a minha vez e o jogo tiver começado
                 btn.disabled = !state.isMyTurn;
             } else {
-                // Esconde botões de cartas que não existem mais
                 btn.style.display = 'none';
             }
         });
     });
     
-    // Ouvinte para erros
     socket.on('error', (data) => {
         alert(`Erro: ${data.message}`);
     });
 
-    // --- Emissores de Ações ---
+    // Emissores de Ações
     cardButtons.forEach((button, index) => {
         button.addEventListener('click', () => {
             if (currentRoom) {
@@ -89,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Mapeamento de nomes de cartas (para exibir na UI)
+    // Mapeamento de nomes de cartas
     const CARD_NAMES = {
         0: "Porcão", 1: "Q", 2: "J", 3: "K", 4: "A", 5: "2", 6: "3",
         7: "Coringa", 8: "Ouros", 9: "Espadilha", 10: "Copão", 11: "Zap"
