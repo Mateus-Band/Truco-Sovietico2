@@ -1,120 +1,97 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Elementos DOM
-    const cardsDisplay = document.getElementById('cardsDisplay');
-    const gameMessage = document.getElementById('gameMessage');
+    const socket = io();
+
+    // Elementos da UI
+    const roomControls = document.getElementById('room-controls');
+    const roomInput = document.getElementById('room-input');
+    const joinButton = document.getElementById('join-button');
+    const gameMain = document.getElementById('game-main');
+    const gameMessage = document.getElementById('game-message');
     const scoreTeam1 = document.getElementById('scoreTeam1').querySelector('.score-value');
     const scoreTeam2 = document.getElementById('scoreTeam2').querySelector('.score-value');
-    const roundNumberEl = document.getElementById('roundNumber');
-    const playerTurnEl = document.getElementById('playerTurn');
-    const btnStart = document.getElementById('btnStart');
-    const btnReset = document.getElementById('btnReset');
+    const roomNameDisplay = document.getElementById('room-name-display');
+    const playerNumberDisplay = document.getElementById('player-number-display');
+    const tableCards = document.getElementById('table-cards');
     const cardButtons = [
         document.getElementById('btnCard1'),
         document.getElementById('btnCard2'),
         document.getElementById('btnCard3')
     ];
 
-    let isRequestPending = false;
+    let currentRoom = null;
+    let myPlayerNumber = null;
 
-    function setControlsDisabled(state) {
-        btnStart.disabled = state;
-        btnReset.disabled = state;
-        cardButtons.forEach(btn => btn.disabled = state);
-    }
+    // --- Lógica de Conexão ---
+    joinButton.addEventListener('click', () => {
+        const room = roomInput.value.trim().toLowerCase();
+        if (room) {
+            currentRoom = room;
+            socket.emit('join', { room: room });
+            roomControls.style.display = 'none';
+            gameMain.style.display = 'block';
+            roomNameDisplay.textContent = `Sala: ${room}`;
+        }
+    });
 
-    function updateUI(state) {
-        // Atualiza placar
+    // --- Ouvinte Principal de Atualizações ---
+    socket.on('update_state', (state) => {
+        console.log("Estado recebido:", state);
+        if (!state) return;
+
+        myPlayerNumber = state.myPlayerNumber;
+        playerNumberDisplay.textContent = `Você é o Jogador ${myPlayerNumber}`;
+
+        // Atualiza placar e mão
         scoreTeam1.textContent = state.placar.time1;
         scoreTeam2.textContent = state.placar.time2;
-        roundNumberEl.textContent = `Mão: ${state.mao}`;
-        
-        // Atualiza vez do jogador
-        playerTurnEl.textContent = state.jogadorDaVez ? ` - Vez do Jogador ${state.jogadorDaVez}` : '';
 
-        // Atualiza display de cartas
-        if (state.cartasDoJogador.length > 0 && state.jogoIniciado) {
-            cardsDisplay.textContent = `Suas cartas: ${state.cartasDoJogador.join(' | ')}`;
-        } else if (!state.jogoIniciado) {
-            cardsDisplay.textContent = "Clique em 'Iniciar Jogo' para uma nova rodada.";
+        // Atualiza a mesa
+        if (state.mesa.length > 0) {
+            tableCards.innerHTML = state.mesa.map(item => `<span>J${item.player}: ${item.card}</span>`).join(' ');
         } else {
-            cardsDisplay.textContent = "Aguardando sua vez ou a próxima mão...";
-        }
-        
-        // Mensagem de fim de rodada
-        if (state.rodadaFinalizada && !state.jogoIniciado) {
-            gameMessage.textContent = `Fim da rodada! Time ${state.vencedorDaRodada} venceu!`;
+            tableCards.innerHTML = 'Mão limpa';
         }
 
-        // Atualiza botões de controle
-        btnStart.disabled = state.jogoIniciado;
-        btnReset.disabled = !state.jogoIniciado && !state.rodadaFinalizada;
-        btnStart.textContent = state.jogoIniciado ? 'Jogo em Andamento' : 'Iniciar Nova Rodada';
+        // Atualiza mensagem de status
+        if(state.roundWinner) {
+            gameMessage.textContent = `Time ${state.roundWinner} venceu a rodada! Aguardando...`;
+        } else if (state.gameStarted) {
+            gameMessage.textContent = `Mão ${state.mao} - Vez do Jogador ${state.jogadorDaVez}`;
+        } else {
+            gameMessage.textContent = `Aguardando 4 jogadores... (${state.connected_players.length}/4)`;
+        }
 
-        // Atualiza botões de cartas
-        const canPlay = state.jogoIniciado && state.cartasDoJogador.length > 0;
+        // Atualiza minhas cartas e botões
         cardButtons.forEach((btn, index) => {
-            const hasCard = index < state.cartasDoJogador.length;
-            btn.disabled = !canPlay || !hasCard;
-            btn.textContent = canPlay && hasCard ? `Jogar ${state.cartasDoJogador[index]}` : `Carta ${index + 1}`;
-        });
-    }
-
-    async function fetchGameState() {
-        if (isRequestPending) return;
-        isRequestPending = true;
-        try {
-            // AQUI ESTÁ A CORREÇÃO PRINCIPAL: UMA ÚNICA CHAMADA PARA /api/state
-            const response = await fetch('/api/state');
-            if (!response.ok) throw new Error('Falha na comunicação com o servidor');
-            const state = await response.json();
-            updateUI(state);
-        } catch (error) {
-            console.error('Erro ao buscar estado:', error);
-            gameMessage.textContent = 'Erro de conexão. Tentando reconectar...';
-        } finally {
-            isRequestPending = false;
-        }
-    }
-    
-    async function performAction(url, options) {
-        setControlsDisabled(true);
-        gameMessage.textContent = 'Processando...';
-        try {
-            const res = await fetch(url, options);
-            if (!res.ok) throw new Error('Ação falhou');
-            const data = await res.json();
-
-            const message = data.resultado || data.mensagem || '';
-            if (message) {
-                 gameMessage.textContent = message;
+            if (index < state.myCards.length) {
+                btn.textContent = CARD_NAMES[state.myCards[index]];
+                btn.style.display = 'inline-block';
+                // Habilita o botão apenas se for a minha vez e o jogo tiver começado
+                btn.disabled = !state.isMyTurn;
+            } else {
+                // Esconde botões de cartas que não existem mais
+                btn.style.display = 'none';
             }
-           
-        } catch (error) {
-            console.error('Erro na ação:', error);
-            gameMessage.textContent = 'Ocorreu um erro. A interface será atualizada.';
-        } finally {
-            await fetchGameState(); 
-        }
-    }
-
-    function playCard(indice) {
-        performAction(`/api/play/${indice}`, { method: 'POST' });
-    }
+        });
+    });
     
+    // Ouvinte para erros
+    socket.on('error', (data) => {
+        alert(`Erro: ${data.message}`);
+    });
+
+    // --- Emissores de Ações ---
     cardButtons.forEach((button, index) => {
-        button.addEventListener('click', () => playCard(index));
+        button.addEventListener('click', () => {
+            if (currentRoom) {
+                socket.emit('play_card', { room: currentRoom, card_index: index });
+            }
+        });
     });
 
-    btnStart.addEventListener('click', () => {
-        gameMessage.textContent = '';
-        performAction('/api/start', { method: 'POST' });
-    });
-    
-    btnReset.addEventListener('click', () => {
-        performAction('/api/reset', { method: 'POST' });
-    });
-    
-    // Inicialização e atualização periódica
-    fetchGameState();
-    setInterval(fetchGameState, 3000);
+    // Mapeamento de nomes de cartas (para exibir na UI)
+    const CARD_NAMES = {
+        0: "Porcão", 1: "Q", 2: "J", 3: "K", 4: "A", 5: "2", 6: "3",
+        7: "Coringa", 8: "Ouros", 9: "Espadilha", 10: "Copão", 11: "Zap"
+    };
 });
