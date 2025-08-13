@@ -1,182 +1,189 @@
-from flask import Flask, jsonify, render_template
-import random
 import os
 from threading import Lock
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, join_room, leave_room, emit
+import random
 
-# --- Constantes do Jogo ---
-NUM_PLAYERS = 4
-CARDS_PER_HAND = 3
-HANDS_TO_WIN_ROUND = 2
+# --- Configuração da Aplicação ---
+app = Flask(__name__, template_folder='templates', static_folder='static')
+app.config['SECRET_KEY'] = os.urandom(24)  # Gera uma chave secreta segura
+socketio = SocketIO(app, async_mode='eventlet')
 
+# --- Constantes e Lógica do Jogo (adaptadas) ---
+# (A lógica do TrucoGame foi movida e adaptada para dentro desta seção para simplicidade)
 CARD_NAMES = {
     0: "Porcão", 1: "Q", 2: "J", 3: "K", 4: "A", 5: "2", 6: "3",
     7: "Coringa", 8: "Ouros", 9: "Espadilha", 10: "Copão", 11: "Zap"
 }
-
-# O baralho completo, conforme a definição original.
 FULL_DECK = [
     0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5,
     7, 8, 9, 10, 11
 ]
 
-class TrucoGame:
-    """Encapsula todo o estado e lógica do jogo de Truco."""
+# --- Gestão de Estado Global ---
+games = {}  # Dicionário para guardar o estado dos jogos de cada sala
+games_lock = Lock()
 
-    def __init__(self):
-        """Inicializa o jogo."""
-        self.lock = Lock()
-        self.reset_full_game()
+def create_new_game_state():
+    """Cria um estado de jogo inicial para uma nova sala."""
+    return {
+        "players": {},  # sid: player_info
+        "player_order": [], # Lista de sids na ordem de jogo
+        "deck": [],
+        "table": [],
+        "current_player_idx": 0,
+        "team1_hand_wins": 0,
+        "team2_hand_wins": 0,
+        "hand_of_round": 1,
+        "game_started": False,
+        "round_winner_team": None
+    }
 
-    def reset_full_game(self):
-        """Reseta o jogo para um estado não iniciado."""
-        with self.lock:
-            self.jogo_iniciado = False
-            self.round_winner_team = None
-            self._reset_round_state()
+def get_player_view(room_name, player_sid):
+    """Cria a visão do jogo específica para um jogador."""
+    with games_lock:
+        state = games.get(room_name)
+        if not state:
+            return {}
 
-    def start_new_round(self):
-        """Inicia uma nova rodada, distribuindo cartas e resetando placares da rodada."""
-        with self.lock:
-            self.jogo_iniciado = True
-            self.round_winner_team = None
-            self._reset_round_state()
-            self._prepare_deck()
-            self._distribute_cards()
-            return {"mensagem": "Uma nova rodada começou!", "status": "sucesso"}
+        player_info = state["players"].get(player_sid)
+        if not player_info:
+            return {}
+            
+        is_my_turn = state["game_started"] and state["player_order"][state["current_player_idx"]] == player_sid
 
-    def _reset_round_state(self):
-        """Limpa o estado para uma nova rodada (mesa, placar da rodada, etc.)."""
-        self.deck = []
-        self.players = [[] for _ in range(NUM_PLAYERS)]
-        self.table = []
-        self.current_player_idx = 0
-        self.team1_hand_wins = 0
-        self.team2_hand_wins = 0
-        self.hand_of_round = 1
+        return {
+            "isMyTurn": is_my_turn,
+            "myCards": player_info["cards"],
+            "myPlayerNumber": player_info["number"],
+            "gameStarted": state["game_started"],
+            "placar": {"time1": state["team1_hand_wins"], "time2": state["team2_hand_wins"]},
+            "mao": state["hand_of_round"],
+            "jogadorDaVez": state["players"][state["player_order"][state["current_player_idx"]]]['number'] if state["game_started"] else None,
+            "mesa": [{"player": state["players"][item["sid"]]["number"], "card": CARD_NAMES[item["card"]]} for item in state["table"]],
+            "connected_players": [p["number"] for p in state["players"].values()],
+            "roundWinner": state["round_winner_team"]
+        }
 
-    def _prepare_deck(self):
-        """Prepara o baralho, embaralhando as cartas."""
-        self.deck = FULL_DECK[:]
-        random.shuffle(self.deck)
+# --- Eventos do Socket.IO ---
 
-    def _distribute_cards(self):
-        """Distribui cartas para os jogadores."""
-        if len(self.deck) < NUM_PLAYERS * CARDS_PER_HAND:
-            self._prepare_deck()
+@socketio.on('join')
+def on_join(data):
+    """Quando um jogador entra numa sala."""
+    room = data['room']
+    sid = request.sid
+    join_room(room)
 
-        for i in range(NUM_PLAYERS):
-            self.players[i].clear()
-            for _ in range(CARDS_PER_HAND):
-                if self.deck:
-                    self.players[i].append(self.deck.pop())
+    with games_lock:
+        if room not in games:
+            games[room] = create_new_game_state()
 
-    def play_card(self, card_index):
-        """Processa a jogada de um jogador."""
-        with self.lock:
-            if not self.jogo_iniciado or self.current_player_idx >= NUM_PLAYERS:
-                return {"resultado": "Jogada inválida ou fora de hora."}
+        state = games[room]
+        if sid not in state["players"] and len(state["players"]) < 4:
+            player_number = len(state["players"]) + 1
+            state["players"][sid] = {"number": player_number, "cards": [], "sid": sid}
+            state["player_order"].append(sid) # Adiciona na ordem de chegada
+            print(f"Jogador {player_number} ({sid}) entrou na sala {room}")
 
-            player_hand = self.players[self.current_player_idx]
-            if not 0 <= card_index < len(player_hand):
-                return {"resultado": "Índice da carta é inválido."}
+            if len(state["players"]) == 4:
+                # Jogo começa!
+                start_new_round(room)
+        
+        # Envia a todos o estado atualizado da sala
+        for player_sid in state["players"]:
+            emit('update_state', get_player_view(room, player_sid), to=player_sid)
 
-            card = player_hand.pop(card_index)
-            self.table.append({'player_idx': self.current_player_idx, 'card': card})
-            self.current_player_idx += 1
+@socketio.on('play_card')
+def on_play_card(data):
+    room = data['room']
+    card_index = data['card_index']
+    sid = request.sid
 
-            if self.current_player_idx == NUM_PLAYERS:
-                return self._end_hand()
+    with games_lock:
+        state = games.get(room, {})
+        player_info = state.get("players", {}).get(sid)
 
-            return {"resultado": "Carta jogada. Aguardando próximo jogador."}
+        is_my_turn = state["game_started"] and state["player_order"][state["current_player_idx"]] == sid
 
-    def _end_hand(self):
-        """Finaliza uma mão, determina o vencedor e verifica se a rodada acabou."""
-        hand_winner_idx = self._get_hand_winner()
-        winner_name = f"Jogador {hand_winner_idx + 1}"
+        if not player_info or not is_my_turn or not (0 <= card_index < len(player_info["cards"])):
+            emit('error', {'message': 'Jogada inválida.'})
+            return
 
-        if hand_winner_idx in [0, 2]:
-            self.team1_hand_wins += 1
-        else:
-            self.team2_hand_wins += 1
+        card = player_info["cards"].pop(card_index)
+        state["table"].append({"sid": sid, "card": card})
 
-        if self.team1_hand_wins >= HANDS_TO_WIN_ROUND:
-            self.round_winner_team = 1
-            self.jogo_iniciado = False
-            return {"resultado": f"{winner_name} venceu a mão! Time 1 venceu a rodada!"}
+        # Avança para o próximo jogador
+        state["current_player_idx"] += 1
+        
+        if len(state["table"]) == 4:
+            # Todos jogaram, finalizar a mão
+            end_hand(room)
+        
+        for player_sid in state["players"]:
+            emit('update_state', get_player_view(room, player_sid), to=player_sid)
 
-        if self.team2_hand_wins >= HANDS_TO_WIN_ROUND:
-            self.round_winner_team = 2
-            self.jogo_iniciado = False
-            return {"resultado": f"{winner_name} venceu a mão! Time 2 venceu a rodada!"}
+# --- Funções Auxiliares de Lógica de Jogo ---
 
-        self._start_new_hand()
-        return {"resultado": f"{winner_name} venceu a mão! Começando a próxima mão."}
+def start_new_round(room):
+    """Prepara uma nova rodada para uma sala."""
+    state = games[room]
+    state["game_started"] = True
+    state["round_winner_team"] = None
+    state["team1_hand_wins"] = 0
+    state["team2_hand_wins"] = 0
+    start_new_hand(room)
 
-    def _start_new_hand(self):
-        """Prepara para a próxima mão dentro da mesma rodada."""
-        self.table = []
-        self.current_player_idx = 0
-        self.hand_of_round += 1
-        self._distribute_cards()
+def start_new_hand(room):
+    """Prepara uma nova mão (distribui cartas)."""
+    state = games[room]
+    state["table"] = []
+    state["current_player_idx"] = 0
+    state["hand_of_round"] = state["team1_hand_wins"] + state["team2_hand_wins"] + 1
 
-    def _get_hand_winner(self):
-        """Determina o jogador que venceu a mão."""
-        cards_on_table = [(item['player_idx'], item['card']) for item in self.table]
-        card_values = [card for _, card in cards_on_table]
+    # Embaralhar e distribuir
+    deck = FULL_DECK[:]
+    random.shuffle(deck)
+    for player_sid in state["player_order"]:
+        state["players"][player_sid]["cards"] = sorted([deck.pop() for _ in range(3)], reverse=True)
 
-        if 0 in card_values and 11 in card_values:
-            return next(player_idx for player_idx, card in cards_on_table if card == 0)
+def end_hand(room):
+    """Determina o vencedor da mão e verifica o fim da rodada."""
+    state = games[room]
+    
+    # Determinar vencedor da mão
+    card_values = [item["card"] for item in state["table"]]
+    if 0 in card_values and 11 in card_values: # Porcão e Zap
+        winner_item = next(item for item in state["table"] if item["card"] == 0)
+    else:
+        winner_item = max(state["table"], key=lambda item: item["card"])
+    
+    winner_sid = winner_item["sid"]
+    winner_number = state["players"][winner_sid]["number"]
 
-        return max(cards_on_table, key=lambda item: item[1])[0]
+    if winner_number in [1, 3]:
+        state["team1_hand_wins"] += 1
+    else:
+        state["team2_hand_wins"] += 1
+        
+    # Definir quem começa a próxima mão
+    winner_idx_in_order = state["player_order"].index(winner_sid)
+    # Reorganiza a ordem para o vencedor começar
+    state["player_order"] = state["player_order"][winner_idx_in_order:] + state["player_order"][:winner_idx_in_order]
+    
+    # Verificar se a rodada acabou
+    if state["team1_hand_wins"] >= 2 or state["team2_hand_wins"] >= 2:
+        state["round_winner_team"] = 1 if state["team1_hand_wins"] >= 2 else 2
+        state["game_started"] = False # Pausa o jogo até ser reiniciado
+    else:
+        # Prepara para a próxima mão
+        socketio.sleep(3) # Pausa para os jogadores verem o resultado
+        start_new_hand(room)
 
-    def get_state(self):
-        """Retorna o estado completo e atual do jogo."""
-        with self.lock:
-            player_id_for_view = self.current_player_idx if self.current_player_idx < NUM_PLAYERS else 0
-            player_cards = self.players[player_id_for_view]
-            player_card_names = [CARD_NAMES.get(c, "??") for c in player_cards]
-
-            return jsonify({
-                "jogoIniciado": self.jogo_iniciado,
-                "placar": {"time1": self.team1_hand_wins, "time2": self.team2_hand_wins},
-                "mao": self.hand_of_round,
-                "jogadorDaVez": self.current_player_idx + 1 if self.jogo_iniciado and self.current_player_idx < NUM_PLAYERS else None,
-                "cartasDoJogador": player_card_names,
-                "rodadaFinalizada": self.round_winner_team is not None,
-                "vencedorDaRodada": self.round_winner_team
-            })
-
-# --- Configuração do Flask ---
-app = Flask(__name__, template_folder='templates', static_folder='static')
-game = TrucoGame()
-
-# --- Rotas da Aplicação ---
+# --- Rota HTTP Principal ---
 @app.route('/')
 def index():
     """Serve a página principal do jogo."""
     return render_template('index.html')
 
-@app.route('/api/state')
-def get_game_state():
-    """Endpoint que provê todo o estado do jogo para o cliente."""
-    return game.get_state()
-
-@app.route('/api/play/<int:indice>', methods=['POST'])
-def api_play_card(indice):
-    """Endpoint para um jogador jogar uma carta."""
-    return jsonify(game.play_card(indice))
-
-@app.route('/api/start', methods=['POST'])
-def api_start_game():
-    """Endpoint para iniciar uma nova rodada."""
-    return jsonify(game.start_new_round())
-
-@app.route('/api/reset', methods=['POST'])
-def api_reset_game():
-    """Endpoint para resetar o jogo completamente."""
-    game.reset_full_game()
-    return jsonify(mensagem="Jogo resetado com sucesso!", status="sucesso")
-
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    socketio.run(app, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
