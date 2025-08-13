@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let currentRoom = null;
-    let myPlayerNumber = null;
 
     // Lógica de Conexão
     joinButton.addEventListener('click', () => {
@@ -33,44 +32,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- OUVINTE PRINCIPAL DE ATUALIZAÇÕES (LÓGICA CORRIGIDA) ---
+    // --- OUVINTE PRINCIPAL (COM DEPURAÇÃO) ---
     socket.on('update_state', (state) => {
-        console.log("Estado recebido:", state);
+        // VVVV LINHA DE DEPURAÇÃO IMPORTANTE VVVV
+        console.log("DADOS RECEBIDOS DO SERVIDOR:", JSON.stringify(state, null, 2));
 
-        // Se o estado for inválido, não faz nada.
         if (!state) return;
 
-        // Atualiza o número do jogador
+        // Tenta atualizar o número do jogador
         if (state.myPlayerNumber) {
-            myPlayerNumber = state.myPlayerNumber;
-            playerNumberDisplay.textContent = `Você é o Jogador ${myPlayerNumber}`;
+            playerNumberDisplay.textContent = `Você é o Jogador ${state.myPlayerNumber}`;
         } else {
             playerNumberDisplay.textContent = "Aguardando atribuição...";
         }
 
-        // Atualiza placar
+        // Atualiza o resto da UI
         if (state.placar) {
             scoreTeam1.textContent = state.placar.time1;
             scoreTeam2.textContent = state.placar.time2;
         }
 
-        // Atualiza a mesa
         if (state.mesa && state.mesa.length > 0) {
             tableCards.innerHTML = state.mesa.map(item => `<span>J${item.player}: ${item.card}</span>`).join(' ');
         } else {
             tableCards.innerHTML = 'Aguardando jogadas...';
         }
 
-        // Atualiza a mensagem principal do jogo
         if (state.roundWinner) {
             gameMessage.textContent = `Time ${state.roundWinner} venceu a rodada!`;
         } else if (state.gameStarted) {
             gameMessage.textContent = `Mão ${state.mao} - Vez do Jogador ${state.jogadorDaVez}`;
-        } else {
+        } else if (state.connected_players_count !== undefined) {
             gameMessage.textContent = `Aguardando jogadores... (${state.connected_players_count}/4)`;
         }
 
-        // Atualiza as cartas e os botões
         cardButtons.forEach((btn, index) => {
             if (state.myCards && index < state.myCards.length) {
                 btn.textContent = CARD_NAMES[state.myCards[index]];
