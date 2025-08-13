@@ -33,27 +33,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Ouvinte Principal de Atualizações
+    // --- OUVINTE PRINCIPAL DE ATUALIZAÇÕES (LÓGICA CORRIGIDA) ---
     socket.on('update_state', (state) => {
         console.log("Estado recebido:", state);
-        if (!state || Object.keys(state).length === 0) {
-            // Se o estado estiver vazio, talvez o jogador tenha sido removido de uma sala
-            return;
+
+        // Se o estado for inválido, não faz nada.
+        if (!state) return;
+
+        // Atualiza o número do jogador
+        if (state.myPlayerNumber) {
+            myPlayerNumber = state.myPlayerNumber;
+            playerNumberDisplay.textContent = `Você é o Jogador ${myPlayerNumber}`;
+        } else {
+            playerNumberDisplay.textContent = "Aguardando atribuição...";
         }
 
-        myPlayerNumber = state.myPlayerNumber;
-        playerNumberDisplay.textContent = `Você é o Jogador ${myPlayerNumber}`;
+        // Atualiza placar
+        if (state.placar) {
+            scoreTeam1.textContent = state.placar.time1;
+            scoreTeam2.textContent = state.placar.time2;
+        }
 
-        scoreTeam1.textContent = state.placar.time1;
-        scoreTeam2.textContent = state.placar.time2;
-
-        if (state.mesa.length > 0) {
+        // Atualiza a mesa
+        if (state.mesa && state.mesa.length > 0) {
             tableCards.innerHTML = state.mesa.map(item => `<span>J${item.player}: ${item.card}</span>`).join(' ');
         } else {
             tableCards.innerHTML = 'Aguardando jogadas...';
         }
 
-        if(state.roundWinner) {
+        // Atualiza a mensagem principal do jogo
+        if (state.roundWinner) {
             gameMessage.textContent = `Time ${state.roundWinner} venceu a rodada!`;
         } else if (state.gameStarted) {
             gameMessage.textContent = `Mão ${state.mao} - Vez do Jogador ${state.jogadorDaVez}`;
@@ -61,8 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
             gameMessage.textContent = `Aguardando jogadores... (${state.connected_players_count}/4)`;
         }
 
+        // Atualiza as cartas e os botões
         cardButtons.forEach((btn, index) => {
-            if (index < state.myCards.length) {
+            if (state.myCards && index < state.myCards.length) {
                 btn.textContent = CARD_NAMES[state.myCards[index]];
                 btn.style.display = 'inline-block';
                 btn.disabled = !state.isMyTurn;
