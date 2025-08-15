@@ -60,7 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const players = state.connected_players;
         team1Names.textContent = players.length > 2 ? `(${players[0]} & ${players[2]})` : '';
         team2Names.textContent = players.length > 3 ? `(${players[1]} & ${players[3]})` : '';
-        playerInfoDisplay.textContent = `Você: ${state.myName} (Dupla: ${state.partnerName})`;
+        
+        // --- CORREÇÃO APLICADA AQUI ---
+        playerInfoDisplay.textContent = `Você é o Jogador ${state.myPlayerNumber} (${state.myName}) | Dupla: ${state.partnerName}`;
 
         tableCardsEl.innerHTML = state.mesa.length > 0 ? state.mesa.map(item => `<span>${item.player}: ${item.card}</span>`).join(' ') : 'Aguardando jogadas...';
         roundValueEl.textContent = state.roundValue;
