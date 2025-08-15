@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io();
-
+//
     // UI Elements
     const roomControls = document.getElementById('room-controls');
     const nameInput = document.getElementById('name-input');
