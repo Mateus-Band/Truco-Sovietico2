@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 import os
 from threading import RLock
 from flask import Flask, render_template, request
