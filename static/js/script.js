@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = io();
-//
+
     // UI Elements
     const roomControls = document.getElementById('room-controls');
     const nameInput = document.getElementById('name-input');
@@ -100,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         playHiddenOption.style.display = (state.gameStarted && state.mao > 1 && state.isMyTurn) ? 'block' : 'none';
 
-        // --- REGRA ADICIONADA ---
         const canCallTruco = state.isMyTeamsTurn && state.trucoState === 'none' && state.mao > 1 && !state.roundOver;
         trucoButton.style.display = canCallTruco ? 'inline-block' : 'none';
 
