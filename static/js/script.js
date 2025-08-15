@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let currentRoom = null;
-
+//alteração
     // Lógica de Conexão
     joinButton.addEventListener('click', () => {
         const room = roomInput.value.trim().toLowerCase();
