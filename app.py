@@ -11,16 +11,28 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config['SECRET_KEY'] = os.urandom(24)
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
-CARD_NAMES = {
-    -1: "Carta Virada",
-    0: "Porcão", 1: "Q", 2: "J", 3: "K", 4: "A", 5: "2", 6: "3",
-    7: "Coringa", 8: "Ouros", 9: "Espadilha", 10: "Copão", 11: "Zap"
+# --- NOVO SISTEMA DE CARTAS ---
+CARD_DATA = {
+    # Manilhas
+    'zap.png': {'value': 11, 'name': 'Zap'},
+    'copas.png': {'value': 10, 'name': 'Copas'},
+    'espadilha.png': {'value': 9, 'name': 'Espadilha'},
+    'ouros.png': {'value': 8, 'name': 'Ouros'},
+    # Especiais
+    'coringa.png': {'value': 7, 'name': 'Coringa'},
+    'porcao.png': {'value': 0, 'name': 'Porcão'},
+    # Comuns
+    '3_of_clubs.png': {'value': 6, 'name': '3 de Paus'}, '3_of_diamonds.png': {'value': 6, 'name': '3 de Ouros'}, '3_of_hearts.png': {'value': 6, 'name': '3 de Copas'}, '3_of_spades.png': {'value': 6, 'name': '3 de Espadas'},
+    '2_of_clubs.png': {'value': 5, 'name': '2 de Paus'}, '2_of_diamonds.png': {'value': 5, 'name': '2 de Ouros'}, '2_of_hearts.png': {'value': 5, 'name': '2 de Copas'}, '2_of_spades.png': {'value': 5, 'name': '2 de Espadas'},
+    'ace_of_clubs.png': {'value': 4, 'name': 'Ás de Paus'}, 'ace_of_diamonds.png': {'value': 4, 'name': 'Ás de Ouros'}, 'ace_of_hearts.png': {'value': 4, 'name': 'Ás de Copas'},
+    'king_of_clubs.png': {'value': 3, 'name': 'Rei de Paus', 'is_royal': True}, 'king_of_diamonds.png': {'value': 3, 'name': 'Rei de Ouros', 'is_royal': True}, 'king_of_hearts.png': {'value': 3, 'name': 'Rei de Copas', 'is_royal': True}, 'king_of_spades.png': {'value': 3, 'name': 'Rei de Espadas', 'is_royal': True},
+    'jack_of_clubs.png': {'value': 2, 'name': 'Valete de Paus', 'is_royal': True}, 'jack_of_diamonds.png': {'value': 2, 'name': 'Valete de Ouros', 'is_royal': True}, 'jack_of_hearts.png': {'value': 2, 'name': 'Valete de Copas', 'is_royal': True}, 'jack_of_spades.png': {'value': 2, 'name': 'Valete de Espadas', 'is_royal': True},
+    'queen_of_clubs.png': {'value': 1, 'name': 'Dama de Paus', 'is_royal': True}, 'queen_of_diamonds.png': {'value': 1, 'name': 'Dama de Ouros', 'is_royal': True}, 'queen_of_hearts.png': {'value': 1, 'name': 'Dama de Copas', 'is_royal': True}, 'queen_of_spades.png': {'value': 1, 'name': 'Dama de Espadas', 'is_royal': True},
+    # Carta Virada
+    'virada.png': {'value': -1, 'name': 'Carta Virada'}
 }
-ROYAL_CARDS = {1, 2, 3}
-FULL_DECK = [
-    0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5,
-    7, 8, 9, 10, 11
-]
+FULL_DECK = list(CARD_DATA.keys())
+FULL_DECK.remove('virada.png') # Não deve ser distribuída
 
 games = {}
 games_lock = RLock()
@@ -69,8 +81,8 @@ def get_views_for_all_players(room_name):
                 "gameStarted": state["game_started"], "placar": {"time1": state["team1_score"], "time2": state["team2_score"]},
                 "handPlacar": {"time1": state["team1_hand_wins"], "time2": state["team2_hand_wins"]},
                 "mao": state["hand_of_round"], "jogadorDaVez": current_player_info['name'] if current_player_info else None,
-                "mesa": [{"player": p["name"], "card": CARD_NAMES.get(item["card"], "??")} for item in state["table"] for p in state["player_slots"] if p and p['sid'] == item['sid']],
-                "handsHistory": [[{"player": p["name"], "card": CARD_NAMES.get(card_item["card"], "??")} for card_item in hand for p in state["player_slots"] if p and p['sid'] == card_item['sid']] for hand in state["hands_history"]],
+                "mesa": [{"player": p["name"], "card": CARD_DATA.get(item["card_filename"], {}).get('name', '??')} for item in state["table"] for p in state["player_slots"] if p and p['sid'] == item['sid']],
+                "handsHistory": [[{"player": p["name"], "card": CARD_DATA.get(card_item["card_filename"], {}).get('name', '??')} for card_item in hand for p in state["player_slots"] if p and p['sid'] == card_item['sid']] for hand in state["hands_history"]],
                 "connected_players": [p["name"] for p in state["player_slots"] if p],
                 "roundOver": state["round_over"], "roundWinner": state["round_winner_team"],
                 "gameWinner": state["game_winner"], "roundValue": state["round_value"],
@@ -95,29 +107,21 @@ def on_join(data):
     with games_lock:
         if room not in games: games[room] = create_new_game_state()
         state = games[room]
-        
-        # --- LÓGICA DE RECONEXÃO MELHORADA ---
         reconnected_player = next((p for p in state["player_slots"] if p and p['name'] == name and not p['is_connected']), None)
-        
         if reconnected_player:
-            reconnected_player['sid'] = sid
-            reconnected_player['is_connected'] = True
+            reconnected_player['sid'], reconnected_player['is_connected'] = sid, True
             print(f"Jogador {name} reconectou-se à sala {room}")
         elif len([p for p in state["player_slots"] if p]) < 4 and not any(p and p['name'] == name for p in state["player_slots"]):
-            # Adiciona novo jogador se não estiver a reconectar e houver espaço
             available_slot = next((i for i, v in enumerate(state["player_slots"]) if v is None), None)
             if available_slot is not None:
                 state["player_slots"][available_slot] = {"sid": sid, "name": name, "cards": [], "is_connected": True}
                 print(f"Jogador {name} (P{available_slot+1}) entrou na sala {room}")
                 if len([p for p in state["player_slots"] if p]) == 4:
                     game_should_start = True
-    
     if game_should_start:
         start_new_round(room)
-    
     broadcast_state(room)
 
-# (O resto do app.py permanece igual)
 @socketio.on('play_card')
 def on_play_card(data):
     room, card_index, sid = data['room'], data['card_index'], request.sid
@@ -130,9 +134,11 @@ def on_play_card(data):
         is_my_turn = state["player_order"][state["current_player_idx"]] == sid
         if not player_info or not is_my_turn or not (0 <= card_index < len(player_info["cards"])): return
         if is_hidden and state['hand_of_round'] == 1: return
-        card_played = player_info["cards"].pop(card_index)
-        card_value_on_table = -1 if is_hidden else card_played
-        state["table"].append({"sid": sid, "card": card_value_on_table})
+        
+        card_filename = player_info["cards"].pop(card_index)
+        card_value = CARD_DATA['virada.png']['value'] if is_hidden else CARD_DATA[card_filename]['value']
+        
+        state["table"].append({"sid": sid, "card_value": card_value, "card_filename": card_filename if not is_hidden else 'virada.png'})
         state["current_player_idx"] += 1
         if len(state["table"]) == 4: hand_is_over = True
     if hand_is_over:
@@ -140,6 +146,7 @@ def on_play_card(data):
         end_hand(room)
     broadcast_state(room)
 
+# (O resto do app.py, a partir de 'disconnect', permanece igual)
 @socketio.on('disconnect')
 def on_disconnect():
     sid = request.sid
@@ -221,7 +228,7 @@ def start_new_round(room):
             for slot in state["player_slots"]:
                 if slot: dealt_cards[slot['sid']] = [temp_deck.pop() for _ in range(3)]
             for sid, hand in dealt_cards.items():
-                if all(card in ROYAL_CARDS for card in hand):
+                if all(CARD_DATA[card].get('is_royal', False) for card in hand):
                     print(f"Mão de figuras para {next(p['name'] for p in state['player_slots'] if p and p['sid'] == sid)}. Re-embaralhando...")
                     deck = [card for card in deck if card not in hand]
                     random.shuffle(deck)
@@ -230,7 +237,7 @@ def start_new_round(room):
             if all_hands_ok:
                 for sid, hand in dealt_cards.items():
                     player_slot = next(p for p in state["player_slots"] if p and p['sid'] == sid)
-                    player_slot["cards"] = sorted(hand, reverse=True)
+                    player_slot["cards"] = sorted(hand, key=lambda c: CARD_DATA[c]['value'], reverse=True)
                 break
         start_new_hand(room, state)
 
@@ -242,10 +249,11 @@ def end_hand(room):
     with games_lock:
         state = games[room]
         state['hands_history'].append(list(state['table']))
+        
         highest_card_val, winners = -2, []
         for item in state["table"]:
-            if item['card'] > highest_card_val: highest_card_val, winners = item['card'], [item]
-            elif item['card'] == highest_card_val: winners.append(item)
+            if item['card_value'] > highest_card_val: highest_card_val, winners = item['card_value'], [item]
+            elif item['card_value'] == highest_card_val: winners.append(item)
         
         hand_winner_team = None
         if len(winners) > 1:
