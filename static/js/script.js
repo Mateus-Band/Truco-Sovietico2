@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableCardsEl = document.getElementById('table-cards');
     const roundValueEl = document.getElementById('round-value');
     const handsHistoryEl = document.getElementById('hands-history');
-    const cardButtons = document.querySelectorAll('.btn-card');
+    const cardSlots = document.querySelectorAll('.card-slot');
     const playHiddenOption = document.getElementById('play-hidden-option');
     const playHiddenCheckbox = document.getElementById('play-hidden-checkbox');
     const trucoButton = document.getElementById('truco-button');
@@ -87,14 +87,20 @@ document.addEventListener('DOMContentLoaded', () => {
             gameMessage.textContent = `Aguardando jogadores... (${players.length}/4)`;
         }
 
-        cardButtons.forEach((btn, index) => {
-            const cardValue = state.myCards ? state.myCards[index] : null;
-            if (cardValue !== undefined && cardValue !== null) {
-                btn.textContent = CARD_NAMES[cardValue];
-                btn.style.display = 'inline-block';
-                btn.disabled = !state.isMyTurn;
+        // --- LÓGICA DE ATUALIZAÇÃO DAS IMAGENS ---
+        cardSlots.forEach((slot, index) => {
+            const cardFilename = state.myCards ? state.myCards[index] : null;
+            const img = slot.querySelector('img');
+
+            if (cardFilename) {
+                img.src = `/static/images/cards/${cardFilename}`;
+                img.alt = cardFilename;
+                slot.style.display = 'inline-block';
+                
+                slot.classList.toggle('playable', state.isMyTurn);
+                slot.classList.toggle('disabled', !state.isMyTurn);
             } else {
-                btn.style.display = 'none';
+                slot.style.display = 'none';
             }
         });
 
@@ -116,9 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // Action emitters
-    cardButtons.forEach((btn, index) => {
-        btn.addEventListener('click', () => {
-            if (!btn.disabled) {
+    cardSlots.forEach((slot, index) => {
+        slot.addEventListener('click', () => {
+            if (slot.classList.contains('playable')) {
                 const isHidden = playHiddenCheckbox.checked;
                 socket.emit('play_card', { room: currentRoom, card_index: index, is_hidden: isHidden });
                 playHiddenCheckbox.checked = false;
@@ -140,10 +146,4 @@ document.addEventListener('DOMContentLoaded', () => {
             trucoResponseOverlay.style.display = 'none';
         }
     });
-
-    const CARD_NAMES = {
-        "-1": "Carta Virada",
-        0: "Porcão", 1: "Q", 2: "J", 3: "K", 4: "A", 5: "2", 6: "3",
-        7: "Coringa", 8: "Ouros", 9: "Espadilha", 10: "Copão", 11: "Zap"
-    };
-});
+}); 
