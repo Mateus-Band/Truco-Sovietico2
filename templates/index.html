@@ -7,87 +7,85 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <div class="game-container">
-    <header class="game-header">
-      <!-- MUDANÇA AQUI -->
-      <div class="title-container">
-        <h1>🃏 Truco Soviético Online</h1>
-        <img src="{{ url_for('static', filename='images/icone.png') }}" alt="Ícone" class="title-icon">
-      </div>
-      
-      <div id="room-controls" class="game-controls">
-        <input type="text" id="name-input" placeholder="Seu Nome" class="room-input">
-        <input type="text" id="room-input" placeholder="Nome da Sala" class="room-input">
-        <button id="join-button" class="btn btn-primary">Entrar / Criar Sala</button>
-      </div>
-    </header>
-
-    <main id="game-main" class="game-main" style="display:none;">
-      <section class="game-info">
-        <div id="game-message" class="game-message">Aguardando 4 jogadores...</div>
-        <div class="score-board">
-          <div id="scoreTeam1" class="score-team">Time 1<span id="team1-names" class="team-names"></span><span class="score-value">0</span></div>
-          <div id="scoreTeam2" class="score-team">Time 2<span id="team2-names" class="team-names"></span><span class="score-value">0</span></div>
+  <div class="body-wrapper">
+    <div class="game-container">
+      <header class="game-header">
+        <div class="title-container">
+          <h1>🃏 Truco Soviético Online</h1>
+          <img src="{{ url_for('static', filename='images/icone.png') }}" alt="Ícone" class="title-icon">
         </div>
-        <div id="hand-score-board" class="hand-score-board">
-            <span id="hand-score-team1">Mãos: 0</span>
-            <span>x</span>
-            <span id="hand-score-team2">0</span>
+        <div id="room-controls" class="game-controls">
+          <input type="text" id="name-input" placeholder="Seu Nome" class="room-input">
+          <input type="text" id="room-input" placeholder="Nome da Sala" class="room-input">
+          <button id="join-button" class="btn btn-primary">Entrar / Criar Sala</button>
         </div>
-        <div class="game-status">
-            <span id="room-name-display"></span>
-            <span id="player-info-display"></span>
-        </div>
-      </section>
-
-      <div class="table-area">
-        <section id="table-section" class="table-section">
-          <h3>Mesa (Rodada vale <span id="round-value">1</span> ponto)</h3>
-          <div id="table-cards" class="cards-display"></div>
+      </header>
+      <main id="game-main" class="game-main" style="display:none;">
+        <section class="game-info">
+            <div id="game-message" class="game-message">Aguardando 4 jogadores...</div>
+            <div class="score-board">
+              <div id="scoreTeam1" class="score-team">Time 1<span id="team1-names" class="team-names"></span><span class="score-value">0</span></div>
+              <div id="scoreTeam2" class="score-team">Time 2<span id="team2-names" class="team-names"></span><span class="score-value">0</span></div>
+            </div>
+            <div id="hand-score-board" class="hand-score-board">
+                <span id="hand-score-team1">Mãos: 0</span>
+                <span>x</span>
+                <span id="hand-score-team2">0</span>
+            </div>
+            <div class="game-status">
+                <span id="room-name-display"></span>
+                <span id="player-info-display"></span>
+            </div>
         </section>
-        <section id="history-section" class="history-section">
-          <h3>Mãos Anteriores</h3>
-          <div id="hands-history" class="hands-history"></div>
+        <div class="table-area">
+            <section id="table-section" class="table-section">
+              <h3>Mesa (Rodada vale <span id="round-value">1</span> ponto)</h3>
+              <div id="table-cards" class="cards-display"></div>
+            </section>
+            <section id="history-section" class="history-section">
+              <h3>Mãos Anteriores</h3>
+              <div id="hands-history" class="hands-history"></div>
+            </section>
+        </div>
+        <section class="cards-section">
+            <h3>Minhas Cartas</h3>
+            <div class="cards-actions">
+              <button id="card-btn-0" class="btn btn-card" disabled>Carta 1</button>
+              <button id="card-btn-1" class="btn btn-card" disabled>Carta 2</button>
+              <button id="card-btn-2" class="btn btn-card" disabled>Carta 3</button>
+            </div>
+            <div id="play-hidden-option" class="play-hidden-option" style="display: none;">
+              <input type="checkbox" id="play-hidden-checkbox">
+              <label for="play-hidden-checkbox">Jogar virada</label>
+            </div>
         </section>
-      </div>
-      
-      <section class="cards-section">
-        <h3>Minhas Cartas</h3>
-        <div class="cards-actions">
-          <button id="card-btn-0" class="btn btn-card" disabled>Carta 1</button>
-          <button id="card-btn-1" class="btn btn-card" disabled>Carta 2</button>
-          <button id="card-btn-2" class="btn btn-card" disabled>Carta 3</button>
+        <section id="action-buttons" class="action-buttons">
+            <button id="truco-button" class="btn btn-action" style="display: none;">TRUCO!</button>
+            <button id="new-round-button" class="btn btn-action" style="display: none;">Próxima Rodada</button>
+        </section>
+        <div id="truco-response-overlay" class="overlay" style="display: none;">
+            <div class="overlay-content">
+              <h3 id="truco-question"></h3>
+              <div class="truco-response-buttons">
+                <button class="btn btn-accept" data-response="accept">ACEITAR</button>
+                <button class="btn btn-refuse" data-response="refuse">RECUSAR</button>
+                <button class="btn btn-raise" data-response="raise">AUMENTAR!</button>
+              </div>
+            </div>
         </div>
-        <div id="play-hidden-option" class="play-hidden-option" style="display: none;">
-          <input type="checkbox" id="play-hidden-checkbox">
-          <label for="play-hidden-checkbox">Jogar virada</label>
+        <div id="game-winner-overlay" class="overlay" style="display: none;">
+            <div class="overlay-content">
+              <h2 id="game-winner-message"></h2>
+            </div>
         </div>
-      </section>
+      </main>
+    </div>
 
-      <section id="action-buttons" class="action-buttons">
-        <button id="truco-button" class="btn btn-action" style="display: none;">TRUCO!</button>
-        <button id="new-round-button" class="btn btn-action" style="display: none;">Próxima Rodada</button>
-      </section>
-
-      <div id="truco-response-overlay" class="overlay" style="display: none;">
-        <div class="overlay-content">
-          <h3 id="truco-question"></h3>
-          <div class="truco-response-buttons">
-            <button class="btn btn-accept" data-response="accept">ACEITAR</button>
-            <button class="btn btn-refuse" data-response="refuse">RECUSAR</button>
-            <button class="btn btn-raise" data-response="raise">AUMENTAR!</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="game-winner-overlay" class="overlay" style="display: none;">
-        <div class="overlay-content">
-          <h2 id="game-winner-message"></h2>
-        </div>
-      </div>
-
-    </main>
+    <div class="side-image-container">
+      <img src="{{ url_for('static', filename='images/daniel.png') }}" alt="Daniel">
+    </div>
   </div>
+
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
