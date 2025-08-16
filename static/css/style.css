@@ -6,31 +6,10 @@
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Roboto', sans-serif; background-color: var(--background); color: var(--text-color); line-height: 1.6; }
-
-/* --- NOVOS ESTILOS PARA O LAYOUT PRINCIPAL --- */
-.body-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 20px;
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.side-image-container {
-    margin-top: 20px; /* Alinha com o topo do container do jogo */
-    flex-shrink: 0;
-}
-
-.side-image-container img {
-    width: 200px; /* Ajuste o tamanho conforme necessário */
-    height: auto;
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-}
-/* ------------------------------------------- */
-
+.body-wrapper { display: flex; justify-content: center; align-items: flex-start; gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; }
+.side-image-container { margin-top: 20px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.side-image-container img { width: 200px; height: auto; border-radius: var(--border-radius); box-shadow: var(--box-shadow); }
+.memorial-text { font-size: 0.9rem; color: var(--text-light); font-weight: bold; text-align: center; }
 .game-container { max-width: 800px; width: 100%; background-color: var(--card-background); border-radius: var(--border-radius); box-shadow: var(--box-shadow); overflow: hidden; }
 .game-header { padding: 20px; text-align: center; background-color: var(--primary-color); color: white; }
 .game-header h1 { margin: 0; font-size: 2rem; }
@@ -71,5 +50,5 @@ body { font-family: 'Roboto', sans-serif; background-color: var(--background); c
 .truco-response-buttons { display: flex; gap: 10px; margin-top: 20px; }
 .title-container { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 15px; }
 .title-icon { height: 50px; width: auto; border-radius: 50%; border: 2px solid white; }
-@media (max-width: 1100px) { .side-image-container { display: none; } } /* Esconde a imagem em telas menores */
+@media (max-width: 1100px) { .side-image-container { display: none; } }
 @media (max-width: 600px) { .game-controls, .table-area { flex-direction: column; } .btn, .room-input { width: 100%; margin-bottom: 5px; } }
