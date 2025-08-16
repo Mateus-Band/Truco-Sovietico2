@@ -91,22 +91,33 @@ def index():
 def on_join(data):
     room, name, sid = data['room'], data['name'], request.sid
     join_room(room)
+    game_should_start = False
     with games_lock:
         if room not in games: games[room] = create_new_game_state()
         state = games[room]
+        
+        # --- LÓGICA DE RECONEXÃO MELHORADA ---
         reconnected_player = next((p for p in state["player_slots"] if p and p['name'] == name and not p['is_connected']), None)
+        
         if reconnected_player:
-            reconnected_player['sid'], reconnected_player['is_connected'] = sid, True
+            reconnected_player['sid'] = sid
+            reconnected_player['is_connected'] = True
             print(f"Jogador {name} reconectou-se à sala {room}")
-        elif len([p for p in state["player_slots"] if p]) < 4 and not any(p['name'] == name for p in state["player_slots"] if p):
-            available_slot = next(i for i, v in enumerate(state["player_slots"]) if v is None)
-            state["player_slots"][available_slot] = {"sid": sid, "name": name, "cards": [], "is_connected": True}
-            print(f"Jogador {name} (P{available_slot+1}) entrou na sala {room}")
-            if len([p for p in state["player_slots"] if p]) == 4:
-                print(f"SALA {room} CHEIA! A iniciar o jogo...")
-                start_new_round(room)
+        elif len([p for p in state["player_slots"] if p]) < 4 and not any(p and p['name'] == name for p in state["player_slots"]):
+            # Adiciona novo jogador se não estiver a reconectar e houver espaço
+            available_slot = next((i for i, v in enumerate(state["player_slots"]) if v is None), None)
+            if available_slot is not None:
+                state["player_slots"][available_slot] = {"sid": sid, "name": name, "cards": [], "is_connected": True}
+                print(f"Jogador {name} (P{available_slot+1}) entrou na sala {room}")
+                if len([p for p in state["player_slots"] if p]) == 4:
+                    game_should_start = True
+    
+    if game_should_start:
+        start_new_round(room)
+    
     broadcast_state(room)
 
+# (O resto do app.py permanece igual)
 @socketio.on('play_card')
 def on_play_card(data):
     room, card_index, sid = data['room'], data['card_index'], request.sid
